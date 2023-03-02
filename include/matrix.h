@@ -10,34 +10,48 @@
 using namespace std;
 
 template <typename T>
-struct Scalar {
-    T value;
+class Scalar {
+    T *value = nullptr;
 
-    Scalar(T v) : value(v) {}
+  public:
+    Scalar() {}
 
-    void operator=(T new_value) {
-        value = new_value;
+    Scalar(T v) {
+        value = (T *)malloc(sizeof(T));
+        *value = v;
+    }
+
+    ~Scalar() {
+        free(value);
+    }
+
+    void setValue(T newValue) {
+        *value = newValue;
+    }
+
+    void operator=(T newValue) {
+        *value = newValue;
     }
 
     Scalar &operator+=(const Scalar &s) {
-        value += s.value;
+        *value += *s.value;
         return *this;
     }
 
     friend ostream &operator<<(ostream &os, const Scalar &s) {
-        os << s.value;
+        os << *s.value;
         return os;
     }
 };
 
 template <typename T>
 Scalar<T> operator*(const Scalar<T> &s1, const Scalar<T> &s2) {
-    return Scalar<T>(s1.value * s2.value);
+    return Scalar<T>(*s1.value * *s2.value);
 }
 
 template <typename T>
 Scalar<T> operator+(const Scalar<T> &s1, const Scalar<T> &s2) {
-    return Scalar<T>(s1.value + s2.value);
+    return Scalar<T>(*s1.value + *s2.value);
 }
 
 template <typename T>

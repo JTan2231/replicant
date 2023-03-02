@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "generation.h"
+#include "gradient.h"
 #include "mat_operations.h"
 #include "matrix.h"
 
@@ -11,12 +12,14 @@ using namespace std;
 int main() {
     srand(time(0));
 
-    Matrix<float> m1 = normalInit<float>(2, 7);
-    Matrix<float> m2 = normalInit<float>(7, 4);
+    Tape<float> t;
 
-    cout << "m1: " << endl << m1 << endl << endl;
-    cout << "m2: " << endl << m2 << endl << endl;
+    Variable<float> s1(5, &t);
+    Variable<float> pi(3.14, &t);
 
-    cout << "m1 * m2: " << endl << m1 * m2 << endl;
+    Variable<float> v = s1 * pi;
+
+    cout << v.compute() << endl;
+
     return 0;
 }
