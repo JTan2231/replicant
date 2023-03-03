@@ -9,6 +9,11 @@
 
 using namespace std;
 
+template <typename T>
+void printVar(Variable<T>* v) {
+    cout << v->getValue() << endl;
+}
+
 int main() {
     srand(time(0));
 
@@ -17,11 +22,19 @@ int main() {
     Variable<float> s1(5, &t);
     Variable<float> pi(3.14, &t);
 
-    Variable<float> v = s1 * pi;
+    auto v = s1 - pi;
+    auto v2 = pi + pi;
+    auto v3 = v / v2;
+    auto v4 = v * v3;
 
-    t.compute(&v);
+    // NOTE: cannot do below because temporary objects are a headache.
+    // Variable<float> v4 = v * v2 * v3 * s1 * pi;
 
-    cout << v.getValue() << endl;
+    t.compute(&v4);
+    printVar(&v);
+    printVar(&v2);
+    printVar(&v3);
+    printVar(&v4);
 
     return 0;
 }

@@ -7,12 +7,15 @@
 
 #include "matrix.h"
 
-template <typename T> class Tape;
+template <typename T>
+class Tape;
 
-template <typename T> class Variable;
+template <typename T>
+class Variable;
 
 // TODO: take more than just binary operations
-template <typename T> class Operation {
+template <typename T>
+class Operation {
   protected:
     Variable<T> *lhOperand;
     Variable<T> *rhOperand;
@@ -22,24 +25,26 @@ template <typename T> class Operation {
   public:
     Operation(Variable<T> *lh, Variable<T> *rh, Variable<T> *out)
         : lhOperand(lh), rhOperand(rh), output(out) {}
-    Variable<T> compute();
+    virtual void compute() = 0;
 };
 
-template <typename T> class Constant : public Operation<T> {
+template <typename T>
+class Constant : public Operation<T> {
   public:
-    Constant(Variable<T> *lh) : Operation<T>(lh, nullptr) {
+    Constant(Variable<T> *lh) : Operation<T>(lh, nullptr, lh) {
         this->lhOperand = lh;
         this->output = lh;
     }
 
     void compute() {
-        T value = this->lhOperand->value;
+        T value = this->lhOperand->getValue();
 
         this->output->setValue(value);
     }
 };
 
-template <typename T> class Multiply : public Operation<T> {
+template <typename T>
+class Multiply : public Operation<T> {
   public:
     Multiply(Variable<T> *lh, Variable<T> *rh, Variable<T> *out)
         : Operation<T>(lh, rh, out) {
@@ -55,19 +60,78 @@ template <typename T> class Multiply : public Operation<T> {
     }
 };
 
-template <typename T> class Node {
+template <typename T>
+class Divide : public Operation<T> {
+  public:
+    Divide(Variable<T> *lh, Variable<T> *rh, Variable<T> *out)
+        : Operation<T>(lh, rh, out) {
+        this->lhOperand = lh;
+        this->rhOperand = rh;
+        this->output = out;
+    }
+
+    void compute() {
+        T value = this->lhOperand->getValue() / this->rhOperand->getValue();
+
+        this->output->setValue(value);
+    }
+};
+
+template <typename T>
+class Add : public Operation<T> {
+  public:
+    Add(Variable<T> *lh, Variable<T> *rh, Variable<T> *out)
+        : Operation<T>(lh, rh, out) {
+        this->lhOperand = lh;
+        this->rhOperand = rh;
+        this->output = out;
+    }
+
+    void compute() {
+        T value = this->lhOperand->getValue() + this->rhOperand->getValue();
+
+        this->output->setValue(value);
+    }
+};
+
+template <typename T>
+class Subtract : public Operation<T> {
+  public:
+    Subtract(Variable<T> *lh, Variable<T> *rh, Variable<T> *out)
+        : Operation<T>(lh, rh, out) {
+        this->lhOperand = lh;
+        this->rhOperand = rh;
+        this->output = out;
+    }
+
+    void compute() {
+        T value = this->lhOperand->getValue() - this->rhOperand->getValue();
+
+        this->output->setValue(value);
+    }
+};
+
+template <typename T>
+class Node {
     int id;
     Operation<T> *op;
 
   public:
     Node(int id, Operation<T> *op) : id(id), op(op) {}
-    ~Node() { delete op; }
+    ~Node() {
+        delete op;
+    }
 
-    int getId() { return id; }
-    void compute() { op->compute(); }
+    int getId() {
+        return id;
+    }
+    void compute() {
+        op->compute();
+    }
 };
 
-template <typename T> class Variable : public Scalar<T> {
+template <typename T>
+class Variable : public Scalar<T> {
     Tape<T> *tape;
     int nodeId;
 
@@ -82,31 +146,78 @@ template <typename T> class Variable : public Scalar<T> {
         nodeId = tape->addVariable(this);
     }
 
-    Tape<T> *getTape() { return tape; }
+    Tape<T> *getTape() {
+        return tape;
+    }
 
-    int getNodeId() { return nodeId; }
+    int getNodeId() {
+        return nodeId;
+    }
 
-    T getValue() { return *this->value; }
+    T getValue() {
+        return *this->value;
+    }
 };
 
-template <typename T> Variable<T> operator*(Variable<T> &v1, Variable<T> &v2) {
+template <typename T>
+void opOverload(int nodeId1, int nodeId2, Tape<T> *t, Operation<T> *op,
+                Variable<T> *output) {
+    t->createNode(op);
+
+    int lastId = t->getLastId();
+    t->addEdge(lastId, nodeId1);
+    t->addEdge(lastId, nodeId2);
+
+    t->addEdge(output->getNodeId(), lastId);
+}
+
+template <typename T>
+Variable<T> operator*(Variable<T> &v1, Variable<T> &v2) {
     Tape<T> *tape = v1.getTape();
     Variable<T> *output = new Variable<T>(tape);
     Multiply<T> *op = new Multiply<T>(&v1, &v2, output);
 
-    tape->createNode(op);
+    opOverload(v1.getNodeId(), v2.getNodeId(), tape, op, output);
 
-    int lastId = tape->getLastId();
-    tape->addEdge(lastId, v1.getNodeId());
-    tape->addEdge(lastId, v2.getNodeId());
+    return *output;
+}
 
-    tape->addEdge(output->getNodeId(), lastId);
+template <typename T>
+Variable<T> operator+(Variable<T> &v1, Variable<T> &v2) {
+    Tape<T> *tape = v1.getTape();
+    Variable<T> *output = new Variable<T>(tape);
+    Add<T> *op = new Add<T>(&v1, &v2, output);
+
+    opOverload(v1.getNodeId(), v2.getNodeId(), tape, op, output);
+
+    return *output;
+}
+
+template <typename T>
+Variable<T> operator-(Variable<T> &v1, Variable<T> &v2) {
+    Tape<T> *tape = v1.getTape();
+    Variable<T> *output = new Variable<T>(tape);
+    Subtract<T> *op = new Subtract<T>(&v1, &v2, output);
+
+    opOverload(v1.getNodeId(), v2.getNodeId(), tape, op, output);
+
+    return *output;
+}
+
+template <typename T>
+Variable<T> operator/(Variable<T> &v1, Variable<T> &v2) {
+    Tape<T> *tape = v1.getTape();
+    Variable<T> *output = new Variable<T>(tape);
+    Divide<T> *op = new Divide<T>(&v1, &v2, output);
+
+    opOverload(v1.getNodeId(), v2.getNodeId(), tape, op, output);
 
     return *output;
 }
 
 // graph that holds all the operations conducted for gradient calculation
-template <typename T> class Tape {
+template <typename T>
+class Tape {
     vector<Node<T> *> nodes;
     vector<vector<Node<T> *>> edgeMap;
 
@@ -118,7 +229,9 @@ template <typename T> class Tape {
   public:
     Tape() : idCount(0) {}
 
-    int getLastId() { return idCount - 1; }
+    int getLastId() {
+        return idCount - 1;
+    }
 
     void createNode(Operation<T> *op) {
         Node<T> *node = new Node<T>(idCount++, op);
@@ -130,7 +243,9 @@ template <typename T> class Tape {
         assert(nodes.size() == edgeMap.size());
     }
 
-    void addEdge(int from, int to) { edgeMap[from].push_back(to); }
+    void addEdge(int from, int to) {
+        edgeMap[from].push_back(nodes[to]);
+    }
 
     void addEdge(Variable<T> *v1, Variable<T> *v2) {
         int from = v1->getNodeId();
@@ -146,7 +261,7 @@ template <typename T> class Tape {
         return idCount - 1;
     }
 
-    T compute(Variable<T> *v) {
+    void compute(Variable<T> *v) {
         typedef pair<Node<T> *, int> P;
 
         // TODO: ensure graph is acyclic/accommodate cycles
