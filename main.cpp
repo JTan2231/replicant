@@ -19,7 +19,9 @@ int main() {
 
     Variable<float> v = s1 * pi;
 
-    cout << v.compute() << endl;
+    t.compute(&v);
+
+    cout << v.getValue() << endl;
 
     return 0;
 }
