@@ -9,8 +9,7 @@
 
 using namespace std;
 
-template <typename T>
-void printVar(Variable<T>* v) {
+template <typename T> void printVar(Variable<T> *v) {
     cout << v->getValue() << endl;
 }
 
@@ -35,6 +34,8 @@ int main() {
     printVar(&v2);
     printVar(&v3);
     printVar(&v4);
+
+    cout << "gradient dv4/dv2 == " << t.gradient(v4, v2) << endl;
 
     return 0;
 }
