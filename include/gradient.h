@@ -1,44 +1,70 @@
 #ifndef GRADIENT
 #define GRADIENT
 
+#include <assert.h>
+
+#include <memory>
 #include <stack>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include "matrix.h"
 #include "ops.h"
 #include "variable.h"
 
-template <typename T> class Node;
-template <typename T> class Tape;
-template <typename T> class Variable;
-template <typename T> class Operation;
+template <typename T>
+class Node;
+template <typename T>
+class GradNode;
+template <typename T>
+class Tape;
+template <typename T>
+class Variable;
+template <typename T>
+class Operation;
 
-template <typename T> class Node {
+template <typename T>
+using NodePtr = std::shared_ptr<Node<T>>;
+template <typename T>
+using GradNodePtr = std::shared_ptr<GradNode<T>>;
+template <typename T>
+using OpPtr = std::shared_ptr<Operation<T>>;
+
+template <typename T>
+class Node {
     int id;
-    Operation<T> *op;
+    OpPtr<T> op;
 
   public:
-    Node(int id, Operation<T> *op) : id(id), op(op) {}
-    ~Node() { delete op; }
+    Node(int id, OpPtr<T> op) : id(id), op(op) {}
 
-    int getId() { return id; }
-    Operation<T> *getOp() { return op; }
-    bool isConstant() { return op->isConstant(); }
+    int getId() {
+        return id;
+    }
+    OpPtr<T> getOp() {
+        return op;
+    }
+    bool isConstant() {
+        return op->isConstant();
+    }
 
-    void compute() { op->compute(); }
+    void compute() {
+        op->compute();
+    }
 };
 
-template <typename T> class GradNode {
+template <typename T>
+class GradNode {
     int id;
-    Operation<T> *op;
+    OpPtr<T> op;
     T gradValue;
 
   public:
-    GradNode(int id, Operation<T> *op) : id(id), op(op) {}
+    GradNode(int id, OpPtr<T> op) : id(id), op(op) {}
 
-    int getId() { return id; }
+    int getId() {
+        return id;
+    }
     void setGradValue(T du, T dv) {
         T u = op->getLhValue();
         T v = op->getRhValue();
@@ -46,7 +72,7 @@ template <typename T> class GradNode {
         gradValue = op->differentiate(u, du, v, dv);
     }
 
-    void setConstantGradValue(int wrtId, GradNode<T> *prevNode) {
+    void setConstantGradValue(int wrtId, GradNodePtr<T> prevNode) {
         if (id == wrtId) {
             gradValue = 1;
         } else if (prevNode) {
@@ -56,15 +82,21 @@ template <typename T> class GradNode {
         }
     }
 
-    T getGradValue() { return gradValue; }
-    bool isConstant() { return op->isConstant(); }
+    T getGradValue() {
+        return gradValue;
+    }
+    bool isConstant() {
+        return op->isConstant();
+    }
 };
 
-template <typename T> class GradSubgraph {
-    vector<GradNode<T> *> nodes;
-    vector<vector<GradNode<T> *>> edgeMap;
+template <typename T>
+class GradSubgraph {
+    using PtrVec = std::vector<std::shared_ptr<GradNode<T>>>;
+    PtrVec nodes;
+    std::vector<PtrVec> edgeMap;
 
-    unordered_map<int, int> idMap;
+    std::unordered_map<int, int> idMap;
 
     int headId = 0;
     int wrtId = 0;
@@ -72,9 +104,11 @@ template <typename T> class GradSubgraph {
     int idCount = 0;
 
   public:
-    void createNode(Node<T> *node) {
-        Operation<T> *op = node->getOp();
-        GradNode<T> *gradNode = new GradNode(idCount, op);
+    ~GradSubgraph() {}
+
+    void createNode(NodePtr<T> node) {
+        OpPtr<T> op = node->getOp();
+        GradNodePtr<T> gradNode(new GradNode(idCount, op));
         idCount++;
 
         nodes.push_back(gradNode);
@@ -83,7 +117,9 @@ template <typename T> class GradSubgraph {
         idMap[node->getId()] = gradNode->getId();
     }
 
-    void addEdge(int from, int to) { edgeMap[from].push_back(nodes[to]); }
+    void addEdge(int from, int to) {
+        edgeMap[from].push_back(nodes[to]);
+    }
     int getIdMapping(int from) {
         if (idMap.find(from) == idMap.end()) {
             return -1;
@@ -99,22 +135,22 @@ template <typename T> class GradSubgraph {
     }
 
     T computeGradient() {
-        typedef pair<GradNode<T> *, int> P;
+        using P = std::pair<GradNodePtr<T>, int>;
 
         // TODO: ensure graph is acyclic/accommodate cycles
         //
         // in-order depth-first traversal to calculate up from constants
         // (outer nodes)
 
-        stack<P> s;
-        s.emplace(nodes[headId], 0); // start from target node
+        std::stack<P> s;
+        s.emplace(nodes[headId], 0);  // start from target node
 
         while (!s.empty()) {
             auto &[node, index] = s.top();
             int id = node->getId();
 
             if (index == edgeMap[id].size()) {
-                vector<GradNode<T> *> &edges = edgeMap[id];
+                PtrVec &edges = edgeMap[id];
                 T du, dv;
                 // TODO: handle more than binary operands
                 if (edges.size() == 0) {
@@ -128,7 +164,7 @@ template <typename T> class GradSubgraph {
                     dv = edges[1]->getGradValue();
                 }
 
-                GradNode<T> *prevNode = nullptr;
+                GradNodePtr<T> prevNode = nullptr;
                 if (edgeMap[id].size() > 0) {
                     prevNode = edgeMap[id][0];
                 }
@@ -156,32 +192,30 @@ template <typename T> class GradSubgraph {
     }
 
     void printNodes() {
-        cout << "SUBGRAPH HAS " << nodes.size() << " NODES" << endl;
+        std::cout << "SUBGRAPH HAS " << nodes.size() << " NODES" << std::endl;
         for (auto node : nodes) {
             int id = node->getId();
             for (auto edge : edgeMap[id]) {
-                cout << id << " -> " << edge->getId() << endl;
+                std::cout << id << " -> " << edge->getId() << std::endl;
             }
         }
     }
 };
 
 // graph that holds all the operations conducted for gradient calculation
-template <typename T> class Tape {
-    vector<Node<T> *> nodes;
-    vector<vector<Node<T> *>> edgeMap;
-
-    // think this should be just constants
-    unordered_set<Variable<T> *, Node<T> *> variableMap;
+template <typename T>
+class Tape {
+    std::vector<NodePtr<T>> nodes;
+    std::vector<std::vector<NodePtr<T>>> edgeMap;
 
     int idCount;
 
     GradSubgraph<T> buildGradSubgraph(Variable<T> &target, Variable<T> &wrt) {
-        typedef pair<int, vector<int>> P;
+        using P = std::pair<int, std::vector<int>>;
 
-        unordered_set<int> dependent;
-        stack<P> s;
-        s.emplace(target.getNodeId(), vector<int>{});
+        std::unordered_set<int> dependent;
+        std::stack<P> s;
+        s.emplace(target.getNodeId(), std::vector<int>{});
 
         while (!s.empty()) {
             auto [nodeId, path] = s.top();
@@ -243,12 +277,16 @@ template <typename T> class Tape {
   public:
     Tape() : idCount(0) {}
 
-    int getNodeCount() { return nodes.size(); }
+    int getNodeCount() {
+        return nodes.size();
+    }
 
-    int getLastId() { return idCount - 1; }
+    int getLastId() {
+        return idCount - 1;
+    }
 
-    void createNode(Operation<T> *op) {
-        Node<T> *node = new Node<T>(idCount++, op);
+    void createNode(OpPtr<T> op) {
+        NodePtr<T> node(new Node<T>(idCount++, op));
         nodes.push_back(node);
 
         // edgeMap must always be length == nodes.size()
@@ -257,7 +295,20 @@ template <typename T> class Tape {
         assert(nodes.size() == edgeMap.size());
     }
 
-    void addEdge(int from, int to) { edgeMap[from].push_back(nodes[to]); }
+    void createNode(Operation<T> *op) {
+        OpPtr<T> opPtr(op);
+        NodePtr<T> node(new Node<T>(idCount++, opPtr));
+        nodes.push_back(node);
+
+        // edgeMap must always be length == nodes.size()
+        edgeMap.push_back({});
+
+        assert(nodes.size() == edgeMap.size());
+    }
+
+    void addEdge(int from, int to) {
+        edgeMap[from].push_back(nodes[to]);
+    }
 
     void addEdge(Variable<T> *v1, Variable<T> *v2) {
         int from = v1->getNodeId();
@@ -267,21 +318,21 @@ template <typename T> class Tape {
     }
 
     int addVariable(Variable<T> *v) {
-        Constant<T> *op = new Constant<T>(v->getBuffer());
+        std::shared_ptr<Constant<T>> op(new Constant<T>(v->getBuffer()));
         createNode(op);
 
         return idCount - 1;
     }
 
     void compute(Variable<T> *v) {
-        typedef pair<Node<T> *, int> P;
+        using P = std::pair<NodePtr<T>, int>;
 
         // TODO: ensure graph is acyclic/accommodate cycles
         //
         // in-order depth-first traversal to calculate up from constants
         // (outer nodes)
 
-        stack<P> s;
+        std::stack<P> s;
         s.emplace(nodes[v->getNodeId()], 0);
 
         while (!s.empty()) {
@@ -306,11 +357,11 @@ template <typename T> class Tape {
     }
 
     void printNodes() {
-        cout << "GRAPH HAS " << nodes.size() << " NODES" << endl;
+        std::cout << "GRAPH HAS " << nodes.size() << " NODES" << std::endl;
         for (auto node : nodes) {
             int id = node->getId();
             for (auto edge : edgeMap[id]) {
-                cout << id << " -> " << edge->getId() << endl;
+                std::cout << id << " -> " << edge->getId() << std::endl;
             }
         }
     }

@@ -1,27 +1,50 @@
 #ifndef VARIABLE
 #define VARIABLE
 
+#include <memory>
+
 #include "ops.h"
 #include "scalar.h"
 
-template <typename T> class Tape;
-template <typename T> class Operation;
-template <typename T> class Multiply;
-template <typename T> class Divide;
-template <typename T> class Add;
-template <typename T> class Subtract;
+template <typename T>
+class Variable;
+template <typename T>
+class Tape;
+template <typename T>
+class Operation;
+template <typename T>
+class Multiply;
+template <typename T>
+class Divide;
+template <typename T>
+class Add;
+template <typename T>
+class Subtract;
 
-template <typename T> class Variable : public Scalar<T> {
-    Tape<T> *tape;
+template <typename T>
+using TapePtr = std::shared_ptr<Tape<T>>;
+template <typename T>
+using OpPtr = std::shared_ptr<Operation<T>>;
+template <typename T>
+using VarPtr = std::shared_ptr<Variable<T>>;
+
+template <typename T>
+class Variable : public Scalar<T> {
+    TapePtr<T> tape;
     int nodeId;
 
   public:
     Variable(T value, Tape<T> *tape) : Scalar<T>(value) {
+        this->tape = TapePtr<T>(tape);
+        nodeId = tape->addVariable(this);
+    }
+
+    Variable(T value, TapePtr<T> tape) : Scalar<T>(value) {
         this->tape = tape;
         nodeId = tape->addVariable(this);
     }
 
-    Variable(Tape<T> *tape) : Scalar<T>() {
+    Variable(TapePtr<T> tape) : Scalar<T>() {
         this->tape = tape;
         nodeId = tape->addVariable(this);
     }
@@ -45,17 +68,25 @@ template <typename T> class Variable : public Scalar<T> {
         return *this;
     }
 
-    Tape<T> *getTape() { return tape; }
+    TapePtr<T> getTape() {
+        return tape;
+    }
 
-    Buffer<T> *getBuffer() { return this->value; }
+    std::shared_ptr<Buffer<T>> getBuffer() {
+        return this->value;
+    }
 
-    int getNodeId() { return nodeId; }
+    int getNodeId() {
+        return nodeId;
+    }
 
-    T getValue() { return this->value->getValue(); }
+    T getValue() {
+        return this->value->getValue();
+    }
 };
 
 template <typename T>
-void opOverload(int nodeId1, int nodeId2, Tape<T> *t, Operation<T> *op,
+void opOverload(int nodeId1, int nodeId2, TapePtr<T> t, Operation<T> *op,
                 int outputNodeId) {
     t->createNode(op);
 
@@ -66,9 +97,10 @@ void opOverload(int nodeId1, int nodeId2, Tape<T> *t, Operation<T> *op,
     t->addEdge(outputNodeId, lastId);
 }
 
-template <typename T> Variable<T> operator*(Variable<T> &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *output = new Variable<T>(tape);
+template <typename T>
+Variable<T> operator*(Variable<T> &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> output(new Variable<T>(tape));
     Multiply<T> *op =
         new Multiply<T>(v1.getBuffer(), v2.getBuffer(), output->getBuffer());
 
@@ -77,23 +109,26 @@ template <typename T> Variable<T> operator*(Variable<T> &v1, Variable<T> &v2) {
     return *output;
 }
 
-template <typename T> Variable<T> operator*(Variable<T> &v1, T v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *rhVar = new Variable<T>(v2, tape);
+template <typename T>
+Variable<T> operator*(Variable<T> &v1, T v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> rhVar(new Variable<T>(v2, tape));
 
     return v1 * (*rhVar);
 }
 
-template <typename T> Variable<T> operator*(T &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *lhVar = new Variable<T>(v1, tape);
+template <typename T>
+Variable<T> operator*(T &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> lhVar(new Variable<T>(v1, tape));
 
     return (*lhVar) * v2;
 }
 
-template <typename T> Variable<T> operator+(Variable<T> &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *output = new Variable<T>(tape);
+template <typename T>
+Variable<T> operator+(Variable<T> &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> output(new Variable<T>(tape));
     Add<T> *op =
         new Add<T>(v1.getBuffer(), v2.getBuffer(), output->getBuffer());
 
@@ -102,23 +137,26 @@ template <typename T> Variable<T> operator+(Variable<T> &v1, Variable<T> &v2) {
     return *output;
 }
 
-template <typename T> Variable<T> operator+(Variable<T> &v1, T v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *rhVar = new Variable<T>(v2, tape);
+template <typename T>
+Variable<T> operator+(Variable<T> &v1, T v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> rhVar(new Variable<T>(v2, tape));
 
     return v1 + (*rhVar);
 }
 
-template <typename T> Variable<T> operator+(T &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *lhVar = new Variable<T>(v1, tape);
+template <typename T>
+Variable<T> operator+(T &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> lhVar(new Variable<T>(v1, tape));
 
     return (*lhVar) + v2;
 }
 
-template <typename T> Variable<T> operator-(Variable<T> &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *output = new Variable<T>(tape);
+template <typename T>
+Variable<T> operator-(Variable<T> &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> output(new Variable<T>(tape));
     Subtract<T> *op =
         new Subtract<T>(v1.getBuffer(), v2.getBuffer(), output->getBuffer());
 
@@ -127,23 +165,26 @@ template <typename T> Variable<T> operator-(Variable<T> &v1, Variable<T> &v2) {
     return *output;
 }
 
-template <typename T> Variable<T> operator-(Variable<T> &v1, T v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *rhVar = new Variable<T>(v2, tape);
+template <typename T>
+Variable<T> operator-(Variable<T> &v1, T v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> rhVar(new Variable<T>(v2, tape));
 
     return v1 - (*rhVar);
 }
 
-template <typename T> Variable<T> operator-(T &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *lhVar = new Variable<T>(v1, tape);
+template <typename T>
+Variable<T> operator-(T &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> lhVar(new Variable<T>(v1, tape));
 
     return (*lhVar) - v2;
 }
 
-template <typename T> Variable<T> operator/(Variable<T> &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *output = new Variable<T>(tape);
+template <typename T>
+Variable<T> operator/(Variable<T> &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> output(new Variable<T>(tape));
     Divide<T> *op =
         new Divide<T>(v1.getBuffer(), v2.getBuffer(), output->getBuffer());
 
@@ -152,23 +193,26 @@ template <typename T> Variable<T> operator/(Variable<T> &v1, Variable<T> &v2) {
     return *output;
 }
 
-template <typename T> Variable<T> operator/(Variable<T> &v1, T v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *rhVar = new Variable<T>(v2, tape);
+template <typename T>
+Variable<T> operator/(Variable<T> &v1, T v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> rhVar(new Variable<T>(v2, tape));
 
     return v1 / (*rhVar);
 }
 
-template <typename T> Variable<T> operator/(T &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *lhVar = new Variable<T>(v1, tape);
+template <typename T>
+Variable<T> operator/(T &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> lhVar(new Variable<T>(v1, tape));
 
     return (*lhVar) / v2;
 }
 
-template <typename T> Variable<T> operator^(Variable<T> &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *output = new Variable<T>(tape);
+template <typename T>
+Variable<T> operator^(Variable<T> &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> output(new Variable<T>(tape));
     Power<T> *op =
         new Power<T>(v1.getBuffer(), v2.getBuffer(), output->getBuffer());
 
@@ -177,16 +221,18 @@ template <typename T> Variable<T> operator^(Variable<T> &v1, Variable<T> &v2) {
     return *output;
 }
 
-template <typename T> Variable<T> operator^(Variable<T> &v1, T v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *rhVar = new Variable<T>(v2, tape);
+template <typename T>
+Variable<T> operator^(Variable<T> &v1, T v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> rhVar(new Variable<T>(v2, tape));
 
     return v1 ^ (*rhVar);
 }
 
-template <typename T> Variable<T> operator^(T &v1, Variable<T> &v2) {
-    Tape<T> *tape = v1.getTape();
-    Variable<T> *lhVar = new Variable<T>(v1, tape);
+template <typename T>
+Variable<T> operator^(T &v1, Variable<T> &v2) {
+    TapePtr<T> tape = v1.getTape();
+    VarPtr<T> lhVar(new Variable<T>(v1, tape));
 
     return (*lhVar) ^ v2;
 }

@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
@@ -7,7 +9,8 @@
 
 using namespace std;
 
-template <typename T> void printVar(Variable<T> *v) {
+template <typename T>
+void printVar(Variable<T> *v) {
     cout << v->getValue() << endl;
 }
 
@@ -24,10 +27,10 @@ int main() {
 }
 
 void basicGradientTest() {
-    Tape<double> t;
+    TapePtr<double> t(new Tape<double>());
 
-    Variable<double> s1(5, &t);
-    Variable<double> pi(3.14, &t);
+    Variable<double> s1(5, t);
+    Variable<double> pi(3.14, t);
 
     const double power = 2.364;
 
@@ -40,7 +43,7 @@ void basicGradientTest() {
     // NOTE: cannot do below because temporary objects are a headache.
     // Variable<float> v4 = v * v2 * v3 * s1 * pi;
 
-    t.compute(&v5);
+    t->compute(&v5);
     cout << "v == ";
     printVar(&v);
     cout << "v2 == ";
@@ -52,18 +55,26 @@ void basicGradientTest() {
     cout << "v5 == ";
     printVar(&v5);
 
-    cout << "gradient dv5/dv3 PREDICTION " << t.gradient(v5, v3) << endl;
+    const double f = v.getValue() * v3.getValue();
+    const double f1 = v.getValue();
+    const double g = v3.getValue();
+    const double g1 = 1;
+
+    cout << "gradient dv5/dv3:" << endl;
+    cout << "  - prediction == " << t->gradient(v5, v3) << endl;
+    cout << "  - actual     == " << pow(f, g) * (f1 * g / f + g1 * log(f))
+         << endl;
 }
 
 void selfAssignmentTest() {
-    Tape<double> t;
+    TapePtr<double> t(new Tape<double>());
 
-    Variable<double> v(1, &t);
+    Variable<double> v(1, t);
     for (int i = 0; i < 10; i++) {
         v = v * 2.;
     }
 
-    t.compute(&v);
+    t->compute(&v);
     cout << "v^10 == ";
     printVar(&v);
 }
