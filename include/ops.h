@@ -1,6 +1,7 @@
 #ifndef OPS
 #define OPS
 
+#include <cmath>
 #include <iostream>
 
 template <typename T> class Buffer;
@@ -116,6 +117,45 @@ template <typename T> class Subtract : public Operation<T> {
     }
 
     T differentiate(T u, T du, T v, T dv) { return du - dv; }
+};
+
+template <typename T> class ConstantPower : public Operation<T> {
+  public:
+    ConstantPower(Buffer<T> *lh, Buffer<T> *rh, Buffer<T> *out)
+        : Operation<T>(lh, rh, out) {
+        this->lhOperand = lh;
+        this->rhOperand = rh;
+        this->output = out;
+    }
+
+    void compute() {
+        T value = pow(this->lhOperand->getValue(), this->rhOperand->getValue());
+
+        this->output->setValue(value);
+    }
+
+    T differentiate(T u, T du, T v, T dv) {
+        // d/dx(a^b)
+        if (du == 0 && dv == 0) {
+            return 0;
+        }
+        // d/dx(a^bx)
+        else if (du == 0) {
+            std::cout << "CHECK" << std::endl;
+            return dv * pow(u, v) * log(u);
+        }
+        // d/dx(x^a)
+        else if (dv == 0) {
+            return du * v * pow(u, v - 1);
+        }
+        // d/dx(x^ax)
+        else {
+            T a = pow(u, v);
+            T b = du * (v / u) + dv * log(u);
+
+            return a * b;
+        }
+    }
 };
 
 #endif

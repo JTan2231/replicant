@@ -24,20 +24,23 @@ int main() {
 }
 
 void basicGradientTest() {
-    Tape<float> t;
+    Tape<double> t;
 
-    Variable<float> s1(5, &t);
-    Variable<float> pi(3.14, &t);
+    Variable<double> s1(5, &t);
+    Variable<double> pi(3.14, &t);
+
+    const double power = 2.364;
 
     auto v = s1 - pi;
     auto v2 = pi + pi;
     auto v3 = v / v2;
     auto v4 = v * v3;
+    auto v5 = v4 ^ v3;
 
     // NOTE: cannot do below because temporary objects are a headache.
     // Variable<float> v4 = v * v2 * v3 * s1 * pi;
 
-    t.compute(&v4);
+    t.compute(&v5);
     cout << "v == ";
     printVar(&v);
     cout << "v2 == ";
@@ -46,8 +49,10 @@ void basicGradientTest() {
     printVar(&v3);
     cout << "v4 == ";
     printVar(&v4);
+    cout << "v5 == ";
+    printVar(&v5);
 
-    cout << "gradient dv4/dv2 == " << t.gradient(v4, v2) << endl;
+    cout << "gradient dv5/dv3 PREDICTION " << t.gradient(v5, v3) << endl;
 }
 
 void selfAssignmentTest() {
