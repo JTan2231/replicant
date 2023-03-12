@@ -119,9 +119,9 @@ template <typename T> class Subtract : public Operation<T> {
     T differentiate(T u, T du, T v, T dv) { return du - dv; }
 };
 
-template <typename T> class ConstantPower : public Operation<T> {
+template <typename T> class Power : public Operation<T> {
   public:
-    ConstantPower(Buffer<T> *lh, Buffer<T> *rh, Buffer<T> *out)
+    Power(Buffer<T> *lh, Buffer<T> *rh, Buffer<T> *out)
         : Operation<T>(lh, rh, out) {
         this->lhOperand = lh;
         this->rhOperand = rh;
@@ -141,7 +141,6 @@ template <typename T> class ConstantPower : public Operation<T> {
         }
         // d/dx(a^bx)
         else if (du == 0) {
-            std::cout << "CHECK" << std::endl;
             return dv * pow(u, v) * log(u);
         }
         // d/dx(x^a)

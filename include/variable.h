@@ -169,8 +169,8 @@ template <typename T> Variable<T> operator/(T &v1, Variable<T> &v2) {
 template <typename T> Variable<T> operator^(Variable<T> &v1, Variable<T> &v2) {
     Tape<T> *tape = v1.getTape();
     Variable<T> *output = new Variable<T>(tape);
-    ConstantPower<T> *op = new ConstantPower<T>(v1.getBuffer(), v2.getBuffer(),
-                                                output->getBuffer());
+    Power<T> *op =
+        new Power<T>(v1.getBuffer(), v2.getBuffer(), output->getBuffer());
 
     opOverload(v1.getNodeId(), v2.getNodeId(), tape, op, output->getNodeId());
 
