@@ -1,3 +1,3 @@
 # REPLICANT
 
-Physics and deep learning engine.
+Dead exploration into writing autodiff in C++.
